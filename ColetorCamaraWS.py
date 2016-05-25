@@ -21,9 +21,13 @@ class ColetorCamaraWS():
     def __thread_escrita(self):
         with open(self.nome_arquivo_resultado, 'a') as arquivo:
             while self.produtores_trabalhando > 0:
-                elem = self.fila_escrita.get()
+                try:
+                    elem = self.fila_escrita.get(timeout=5)
+                except:
+                    continue
                 arquivo.write(str(elem))
                 arquivo.write("\n")
+                arquivo.flush()
         print("Feito")
 
     def __thread_discurso(self):
@@ -83,6 +87,6 @@ class ColetorCamaraWS():
         thread_escrita.join()
 
 if __name__ == "__main__":
-    work_load = [('091.2.55.O', '1','3', '289')]*10000
+    work_load = [('091.2.55.O', '1','3', '289')]*100
     c = ColetorCamaraWS()
     c.coletar_teor_discurso(work_load, n_threads=10)
