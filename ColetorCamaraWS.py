@@ -7,7 +7,7 @@ import datetime
 __author__ = 'gabriel'
 
 class ColetorCamaraWS():
-    def __init__(self, nome_arquivo_resultado="resultado.csv", intervalo_inicial = 1.0,
+    def __init__(self, nome_arquivo_resultado="resultado.csv", intervalo_inicial = 2.0,
                  fator_bloqueio=2.0, fator_aceitacao = 0.9, intervalo_estatisticas = 2.0):
         self.fila_servico = queue.Queue()
         self.fila_escrita = queue.Queue()
@@ -24,7 +24,8 @@ class ColetorCamaraWS():
                 try:
                     elem = self.fila_escrita.get(timeout=5)
                 except:
-                    continue
+                    continue # se deu timeout, reverificar a condicao
+
                 arquivo.write(str(elem))
                 arquivo.write("\n")
                 arquivo.flush()
@@ -36,18 +37,20 @@ class ColetorCamaraWS():
             params = self.fila_servico.get()
             try:
                 resultado = CamaraWS.obterInteiroTeorDiscursosPlenario(*params)
+                self.fila_escrita.put(resultado)
 
                 # Caso tenha sido bloqueado anteriormente, porém parei de ser bloqueado, diminuo meu tempo de espera
                 if intervalo_corrente > self.intervalo_chamada:
                     intervalo_corrente *= self.fator_aceitacao
 
-            except:
-                # Em caso de bloqueio, dobro meu intervalo e tento este caso novamente mais tarde
-                intervalo_corrente *= self.fator_bloqueio
-                self.fila_servico.put(params)
-
-            self.fila_escrita.put(resultado)
-            self.fila_servico.task_done()
+            except Exception as e:
+                if e == "Bloqueado":
+                    # Em caso de bloqueio (403), dobro meu intervalo e tento este caso novamente mais tarde
+                    intervalo_corrente *= self.fator_bloqueio
+                    self.fila_servico.put(params)
+                else:
+                    # Caso não tenha sido encontrado, logo o resultado
+                    self.fila_escrita.put({"error": e, "params": params})
 
             time.sleep(intervalo_corrente)
 
@@ -87,6 +90,11 @@ class ColetorCamaraWS():
         thread_escrita.join()
 
 if __name__ == "__main__":
-    work_load = [('091.2.55.O', '1','3', '289')]*100
+    work_load = []
+    with open('listaDiscursos.csv') as f:
+        for linha in f.readlines():
+            valores = linha.split(',')
+            work_load += [tuple(valores)]
     c = ColetorCamaraWS()
+
     c.coletar_teor_discurso(work_load, n_threads=10)
