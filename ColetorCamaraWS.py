@@ -50,7 +50,8 @@ def converte_rtf_base64(discurso64):
 
 class ColetorCamaraWS:
     def __init__(self, n_threads=20, nome_arquivo_resultado=None, intervalo_inicial=1.0,
-                 fator_bloqueio=2.0, fator_aceitacao=0.9, intervalo_estatisticas=2.0):
+                 fator_bloqueio=2.0, fator_aceitacao=0.9, intervalo_estatisticas=2.0,
+                 max_tentativas=10):
         self.fila_servico = queue.Queue()
         self.fila_escrita = queue.Queue()
 
@@ -64,6 +65,7 @@ class ColetorCamaraWS:
         self.fator_bloqueio = fator_bloqueio
         self.fator_aceitacao = fator_aceitacao
         self.intervalo_estatisticas = intervalo_estatisticas
+        self.max_tentativas = max_tentativas
 
     def __thread_escrita(self):
         with open(self.nome_arquivo_resultado, 'a') as arquivo:
@@ -107,8 +109,16 @@ class ColetorCamaraWS:
                     self.fila_servico.put(discurso)
                 else:
                     # Caso não tenha sido encontrado, registro este erro no arquivo de saida tambem
-                    discurso['erro'] = str(e)
-                    self.fila_escrita.put(discurso)
+                    if 'n_tentativas' in discurso:
+                        discurso['n_tentativas'] += 1
+                    else:
+                        discurso['n_tentativas'] = 1
+
+                    if discurso['n_tentativas'] > self.max_tentativas:
+                        discurso['erro'] = str(e)
+                        self.fila_escrita.put(discurso)
+                    else:
+                        self.fila_servico.put(discurso)
 
             time.sleep(intervalo_corrente)
 
@@ -163,6 +173,8 @@ class ColetorCamaraWS:
             tamanho_corrente = self.fila_servico.qsize()
             delta_consultas = ultimo_tam_fila - tamanho_corrente
             vazao = delta_consultas/self.intervalo_estatisticas
+            if vazao == 0:
+                continue
 
             # Calcula estimativa de termino baseado na vazao
             segundos_estimados_fim = tamanho_corrente/vazao
@@ -178,4 +190,4 @@ class ColetorCamaraWS:
 
 if __name__ == "__main__":
     c = ColetorCamaraWS(n_threads=20)
-    c.coletar_teor_discurso(dataInicio = "1/1/15", dataFim = "15/6/16")
+    c.coletar_teor_discurso(dataInicio = "1/1/10", dataFim = "31/12/14")
