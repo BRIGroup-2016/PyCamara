@@ -154,6 +154,7 @@ class ColetorCamaraWS:
                         self.fila_servico.put(fala_discurso)
 
         ultimo_tam_fila = self.fila_servico.qsize() # depuracao
+        total_requisicoes = self.fila_servico.qsize()
 
         # dispara threads
         self.produtores_trabalhando = self.n_threads
@@ -183,11 +184,12 @@ class ColetorCamaraWS:
             # Atualiza estatísticas
             consultas_realizadas += delta_consultas
             ultimo_tam_fila = tamanho_corrente
+            porcentagem_concluido = round(100.0*consultas_realizadas/total_requisicoes, 2)
 
-            print("Total = %s (%s consultas/segundo). Término em %s"
-                  % (consultas_realizadas, vazao, estimativa_termino))
+            print("Andamento: %s/%s - %s%% (%s consultas/segundo) - Término em %s"
+                  % (consultas_realizadas, total_requisicoes, porcentagem_concluido, vazao, estimativa_termino))
         thread_escrita.join()
 
 if __name__ == "__main__":
     c = ColetorCamaraWS(n_threads=20)
-    c.coletar_teor_discurso(dataInicio = "1/1/10", dataFim = "31/12/14")
+    c.coletar_teor_discurso(dataInicio = "1/6/16", dataFim = "5/6/16")
