@@ -124,8 +124,8 @@ class ColetorCamaraWS:
 
         self.produtores_trabalhando -= 1
 
-    def coletar_teor_discurso(self, dataInicio, dataFim):
-        intervalos = intervalo_datas(dataInicio, dataFim)
+    def coletar_teor_discurso(self, data_inicio, data_fim):
+        intervalos = intervalo_datas(data_inicio, data_fim)
 
         # "desnormalizo" a lista para facilitar manipulacoes futuras
         for inicio, fim in intervalos:
@@ -152,8 +152,8 @@ class ColetorCamaraWS:
                         fala_discurso['sumarioDiscurso'] = discurso['sumario']
 
                         self.fila_servico.put(fala_discurso)
-
-        ultimo_tam_fila = self.fila_servico.qsize() # depuracao
+        # depuracao
+        ultimo_tam_fila = self.fila_servico.qsize()
         total_requisicoes = self.fila_servico.qsize()
 
         # dispara threads
@@ -179,7 +179,7 @@ class ColetorCamaraWS:
 
             # Calcula estimativa de termino baseado na vazao
             segundos_estimados_fim = tamanho_corrente/vazao
-            estimativa_termino = datetime.datetime.now() + datetime.timedelta(seconds = segundos_estimados_fim)
+            estimativa_termino = datetime.datetime.now() + datetime.timedelta(seconds=segundos_estimados_fim)
 
             # Atualiza estatísticas
             consultas_realizadas += delta_consultas
@@ -192,4 +192,4 @@ class ColetorCamaraWS:
 
 if __name__ == "__main__":
     c = ColetorCamaraWS(n_threads=20)
-    c.coletar_teor_discurso(dataInicio = "1/6/16", dataFim = "5/6/16")
+    c.coletar_teor_discurso(data_inicio="1/6/16", data_fim="5/6/16")
