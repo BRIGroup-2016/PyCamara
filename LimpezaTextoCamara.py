@@ -8,7 +8,7 @@ __ato_presidencia = re.compile("Ato da Presidência", re.IGNORECASE)
 __texto_parentesis = re.compile('\(.*?\)')
 __espacos = re.compile('[ \n\xa0]+')
 
-def __trata_nome(nome):
+def trata_nome(nome):
     if nome is not None:
         return __texto_parentesis.sub(" ", nome).strip().upper()
 
@@ -25,7 +25,7 @@ def limpa_texto(texto, nome_orador):
     if __ato_presidencia.search(texto) and orador_eh_presidente:
         return None
 
-    nome_orador = __trata_nome(nome_orador)
+    nome_orador = trata_nome(nome_orador)
 
     ultimo_match = None
     ultima_pessoa = None
@@ -39,7 +39,7 @@ def limpa_texto(texto, nome_orador):
             fala = texto[ultimo_match: inicio_match].strip()
             fala = __trata_texto(fala)
 
-            dialogo += [(__trata_nome(ultima_pessoa), fala)]
+            dialogo += [(trata_nome(ultima_pessoa), fala)]
 
         # preparo proxima iteracao
         ultima_pessoa = match_obj.group(1).strip()
@@ -54,7 +54,7 @@ def limpa_texto(texto, nome_orador):
         fala = texto[ultimo_match:pronunciamento_match.start()].strip()
         fala = __trata_texto(fala)
 
-        dialogo += [(__trata_nome(ultima_pessoa), fala)]
+        dialogo += [(trata_nome(ultima_pessoa), fala)]
 
         # trato pronunciamento
         pronunciamento = texto[pronunciamento_match.end():].strip()
