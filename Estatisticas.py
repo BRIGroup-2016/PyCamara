@@ -14,14 +14,16 @@ class Estatisticas:
     def __init__(self):
         self.resumo_politicos = dict()
         self.matriz = None
+        self.modelo = None
 
-    def carrega_dados(self, arq_resumo, arq_matriz):
+    def carrega_dados(self, arq_resumo, arq_matriz, arq_modelo):
         with open(arq_resumo) as resumo:
             self.resumo_politicos = json.load(resumo)
         self.matriz = sklearn.externals.joblib.load(arq_matriz)
+        self.modelo = sklearn.externals.joblib.load(arq_modelo)
 
-        svd = sklearn.decomposition.TruncatedSVD(n_components=50, n_iter=5)
-        self.matriz = svd.fit_transform(self.matriz)
+        # svd = sklearn.decomposition.TruncatedSVD(n_components=50, n_iter=5)
+        # self.matriz = svd.fit_transform(self.matriz)
 
         print(len(self.resumo_politicos))
 
@@ -50,15 +52,28 @@ class Estatisticas:
             print(discursos)
             break
 
+    def __centroide_politico(self, politico):
+        ids = self.__id_discurso_politico(politico)
+        centroide = self.matriz[ids].mean(axis=0)
+        centroide = centroide/np.linalg.norm(centroide)
+
+        return centroide
+
+    def palavras_mais_relevantes(self, politico1, politico2, n):
+        centroide1 = self.__centroide_politico(politico1)
+        centroide2 = self.__centroide_politico(politico2)
+        relevancias = np.multiply(centroide1, centroide2)
+
+        ordem_relevancia = np.argsort(relevancias).tolist()
+        mais_relevantes = ordem_relevancia[0][::-1][:n]
+
+        dicionario = self.modelo.get_feature_names()
+        palavras_mais_relevantes = [dicionario[i] for i in mais_relevantes]
+        return palavras_mais_relevantes
+
     def __similaridade_politicos(self, politico1, politico2):
-        ids1 = self.__id_discurso_politico(politico1)
-        ids2 = self.__id_discurso_politico(politico2)
-
-        centroide1 = self.matriz[ids1].mean(axis=0)
-        centroide1 = centroide1/np.linalg.norm(centroide1)
-
-        centroide2 = self.matriz[ids2].mean(axis=0)
-        centroide2 = centroide2/np.linalg.norm(centroide2)
+        centroide1 = self.__centroide_politico(politico1)
+        centroide2 = self.__centroide_politico(politico2)
 
         similaridade = cosine_similarity(centroide1, centroide2)
         return similaridade
@@ -83,8 +98,8 @@ class Estatisticas:
 
 if __name__ == '__main__':
     est = Estatisticas()
-    prefixo = 'saida_resumo_tfidf_sem_norma_stemmer/'
-    est.carrega_dados(prefixo + "resumo_discursos.json", prefixo + "matriz")
+    prefixo = 'saida_resumo_tfidf/'
+    est.carrega_dados(prefixo + "resumo_discursos.json", prefixo + "matriz", prefixo + "modelo")
     sim, politicos = est.analisa_similaridade_politicos()
 
     linhas = list()
@@ -94,7 +109,8 @@ if __name__ == '__main__':
         linhas.append("\n=====================\n")
         for i in top_ids:
             linhas.append(str(sim[politico_id, i]))
-            linhas.append(" "+ politicos[i]+"\n")
+            linhas.append(" "+ politicos[i])
+            linhas.append(" " + str(est.palavras_mais_relevantes(politicos[politico_id], politicos[i], 10)) + "\n")
         linhas.append("\n")
 
     with open(prefixo + 'similaridades.txt','w') as debug:
