@@ -34,5 +34,9 @@ class Analisador:
         txt = self.preprocessador(txt)
         tokens = self.separador_tokens.split(txt)
 
-        return [token for token in tokens
+        if self.stemmer is not None:
+            return [self.stemmer(token) for token in tokens
+                     if len(token) >= self.tamanho_minimo_token and token not in self.stop]
+        else:
+            return [token for token in tokens
                  if len(token) >= self.tamanho_minimo_token and token not in self.stop]

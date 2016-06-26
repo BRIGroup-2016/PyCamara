@@ -28,7 +28,8 @@ class Estatisticas:
         print(len(self.resumo_politicos))
 
     def analisa_similaridade_politicos(self):
-        lista_politicos = [politico for politico in self.resumo_politicos if len(self.resumo_politicos[politico])> 30]
+        lista_politicos = [politico for politico in self.resumo_politicos
+                           if len(self.resumo_politicos[politico]['discursos'])> 50]
         n_politicos = len(lista_politicos)
         similaridades = np.ones((n_politicos, n_politicos))
 
@@ -53,8 +54,15 @@ class Estatisticas:
             break
 
     def __centroide_politico(self, politico):
-        ids = self.__id_discurso_politico(politico)
-        centroide = self.matriz[ids].mean(axis=0)
+        # ids = self.__id_discurso_politico(politico)
+        # centroide = self.matriz[ids].mean(axis=0)
+        centroide = self.matriz[self.resumo_politicos[politico]['idPolitico'], :].toarray()
+
+        top_pesos = np.argsort(centroide).tolist()[::-1][:100]
+        novo = np.zeros(centroide.shape)
+        novo[0, top_pesos] = centroide[0, top_pesos]
+
+        centroide = novo
         centroide = centroide/np.linalg.norm(centroide)
 
         return centroide
@@ -98,7 +106,7 @@ class Estatisticas:
 
 if __name__ == '__main__':
     est = Estatisticas()
-    prefixo = 'saida_resumo_tfidf/'
+    prefixo = 'saida_resumo_tfidf_sem_norma_stemmer/'
     est.carrega_dados(prefixo + "resumo_discursos.json", prefixo + "matriz", prefixo + "modelo")
     sim, politicos = est.analisa_similaridade_politicos()
 

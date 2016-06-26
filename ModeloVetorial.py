@@ -16,10 +16,12 @@ class ModeloVetorial:
             analyzer=analyzer, max_features=max_features, norm=norma, max_df=max_df,
             min_df=min_df, binary=binary, use_idf=use_idf, smooth_idf=smooth_idf,
             sublinear_tf=sublinear_tf)
-        self.discursos_por_politicos = None
+        self.discursos_por_politicos = dict()
 
     def gera_modelo_vetorial(self, arq_jsons_discursos, arq_modelo, arq_vetores, arq_resumo_json):
-        vetores = self.vetorizador.fit_transform(self.iterador_documentos(arq_jsons_discursos))
+        iterador = self.__carrega_documentos(arq_jsons_discursos)
+        vetores = self.vetorizador.fit_transform(iterador)
+
         sklearn.externals.joblib.dump(self.vetorizador, arq_modelo)
         print("Modelo salvo.")
         sklearn.externals.joblib.dump(vetores, arq_vetores)
@@ -31,16 +33,25 @@ class ModeloVetorial:
             dump = json.dumps(self.discursos_por_politicos, sort_keys=True)
             arq.write(dump)
 
-    def iterador_documentos(self, arq_jsons_discursos):
+    # def iterador_politico(self):
+    #     politicos = list(self.discursos_por_politicos.keys())
+    #     politicos.sort(key=lambda x: self.discursos_por_politicos[x]['idPolitico'])
+    #     for politico in politicos:
+    #         texto_completo = " ".join([discurso['texto']
+    #                                    for discurso in self.discursos_por_politicos[politico]['discursos']])
+    #         yield texto_completo
+
+    def __carrega_documentos(self, arq_jsons_discursos):
         # TODO Refatorar
 
-        i = 0
+        id_discurso = 0
+        id_politico = 0
         self.discursos_por_politicos = dict()
         with open(arq_jsons_discursos) as jsons:
             for linha in jsons:
                 # progresso
-                if i % 100 == 0:
-                    print(i)
+                if id_discurso % 100 == 0:
+                    print(id_discurso)
 
                 discurso_dict = json.loads(linha)
 
@@ -61,18 +72,24 @@ class ModeloVetorial:
                 nome_orador = LimpezaTextoCamara.trata_nome(nome_orador)
                 chave = nome_orador + '_' + partido_orador + '_' + uf_orador
 
-                resumo_discurso = {'idDiscurso': i,
+                resumo_discurso = {'idDiscurso': id_discurso,
                                    'descricaoFaseSessao': discurso_dict.get('descricaoFaseSessao'),
                                    'tipoSessao': discurso_dict.get('tipoSessao'),
                                    'sumarioDiscurso': discurso_dict.get('sumarioDiscurso'),
-                                   'horaInicioDiscurso': discurso_dict.get('horaInicioDiscurso')}
+                                   'horaInicioDiscurso': discurso_dict.get('horaInicioDiscurso'),
+                                   'texto': texto_limpo}
 
                 if chave not in self.discursos_por_politicos:
-                    self.discursos_por_politicos[chave] = []
-                self.discursos_por_politicos[chave].append(resumo_discurso)
+                    self.discursos_por_politicos[chave] = dict()
+                    self.discursos_por_politicos[chave]['discursos'] = list()
+                self.discursos_por_politicos[chave]['discursos'].append(resumo_discurso)
+
+                if 'idPolitico' not in self.discursos_por_politicos[chave]:
+                    self.discursos_por_politicos[chave]['idPolitico'] = id_politico
+                    id_politico += 1
 
                 yield texto_limpo
-                i += 1
+                id_discurso += 1
 
 
 if __name__ == "__main__":
@@ -81,5 +98,12 @@ if __name__ == "__main__":
     arq_vetores = prefixo + "matriz"
     arq_resumo_json = prefixo + "resumo_discursos.json"
 
-    modelo = ModeloVetorial(use_idf=True, norma=None, analyzer=AnalisadorTexto.Analisador(stemmer = None).analizador)
+    modelo = ModeloVetorial(use_idf=True, norma=None, max_df=0.99, max_features=256,
+                            analyzer=AnalisadorTexto.Analisador().analizador)
+
     modelo.gera_modelo_vetorial("coleta_15-06-2016_23_48_09.json", arq_modelo, arq_vetores, arq_resumo_json)
+
+    with open(prefixo + "stop.txt", 'w') as stop_arq:
+        stop_arq.write("\n".join(modelo.vetorizador.stop_words_))
+    with open(prefixo + "features.txt", 'w') as feat_arq:
+        feat_arq.write( "\n".join(modelo.vetorizador.get_feature_names()))
