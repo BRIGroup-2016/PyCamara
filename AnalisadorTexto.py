@@ -4,6 +4,7 @@ import re
 import json
 import collections
 import LimpezaTextoCamara
+import PipelineUtils
 
 
 NLTK_STOPWORDS_PORTUGUES = nltk.corpus.stopwords.words('portuguese')
@@ -51,85 +52,85 @@ class Analisador:
 
 class PreprocessadorDiscursos:
     def __init__(self, analisador=Analisador()):
-        self.contador_palavras_por_token = dict()
-        self.contador_tokens_por_politico = dict()
-
-        self.discursos_por_politicos = dict()
-
-        self.tokens = list()
         self.analisador = analisador
 
-    def _contabiliza_token(self, token, palavra_original, politico):
+        self.tokens_processados = list()
+        self.metadado_discursos = list()
+
+        # Estatisticas
+        self.contador_palavras_por_token = dict()
+        self.contador_tokens_por_politico = dict()
+        self.contador_discursos_por_politico = collections.Counter()
+
+    def _coleta_estatistica(self, token, palavra_original, politico):
         if token not in self.contador_palavras_por_token:
-            self.contador_palavras_por_token = collections.Counter()
-        self.contador_palavras_por_token[token].update(palavra_original)
+            self.contador_palavras_por_token[token] = collections.Counter()
+        self.contador_palavras_por_token[token].update([palavra_original])
 
         if politico not in self.contador_tokens_por_politico:
-            self.contador_tokens_por_politico = collections.Counter()
-        self.contador_tokens_por_politico[politico].update(token)
+            self.contador_tokens_por_politico[politico] = collections.Counter()
+        self.contador_tokens_por_politico[politico].update([token])
+
+        self.contador_discursos_por_politico.update([politico])
+
+    def salva_artefatos(self, raiz):
+        PipelineUtils.salva_objeto(diretorio_raiz=raiz,
+                                   nomes_atributos=['metadado_discursos',
+                                                    'tokens_processados',
+                                                    'contador_palavras_por_token',
+                                                    'contador_discursos_por_politico',
+                                                    'contador_tokens_por_politico'],
+                                   objeto=self)
 
     def carrega_documentos(self, arq_jsons_discursos):
         id_discurso = 0
-        id_politico = 0
-        self.discursos_por_politicos = dict()
+        self.metadado_discursos = list()
+        self.tokens_processados = list()
         with open(arq_jsons_discursos) as jsons:
             for linha in jsons:
                 # Simples analise do progresso
                 if id_discurso % 100 == 0:
                     print(id_discurso)
+                id_discurso += 1
 
                 discurso_dict = json.loads(linha)
-
                 texto_discurso = discurso_dict.get('sumarioDiscurso')
                 partido_orador = discurso_dict.get('partidoOrador')
                 uf_orador = discurso_dict.get('ufOrador')
                 nome_orador = discurso_dict.get('nomeOrador')
 
+                # Caso uma das partes necessarias para a análise não exista, ignoro ela
                 if not all([texto_discurso, partido_orador, uf_orador, nome_orador]):
                     continue
 
-                texto_limpo = texto_discurso
-
-                # IMPORTANTE: Descomentar quando for usar o discurso completo de fato
+                # IMPORTANTE: Trecho que seleciona o que será tratado como texto do discurso
                 # texto_limpo = LimpezaTextoCamara.limpa_texto(texto_discurso, nome_orador)
                 # if texto_limpo is None:
                 #     continue
+                # TODO Rever quando for usar o discurso completo de fato
+                texto_limpo = texto_discurso
 
                 nome_orador = LimpezaTextoCamara.trata_nome(nome_orador)
-                chave = nome_orador + '_' + partido_orador + '_' + uf_orador
+                identificador_politico = nome_orador + '_' + partido_orador + '_' + uf_orador
 
-                # Estrutura auxiliar para armazenar os discursos
-                resumo_discurso = {'idDiscurso': id_discurso,
-                                   'descricaoFaseSessao': discurso_dict.get('descricaoFaseSessao'),
+                # Estrutura auxiliar para armazenar as informações relevantes dos discursos
+                resumo_discurso = {'descricaoFaseSessao': discurso_dict.get('descricaoFaseSessao'),
                                    'tipoSessao': discurso_dict.get('tipoSessao'),
-                                   'sumarioDiscurso': discurso_dict.get('sumarioDiscurso'),
                                    'horaInicioDiscurso': discurso_dict.get('horaInicioDiscurso'),
-                                   'texto': texto_limpo}
-
-                # Mantenho uma relacao dos discursos por politico: dicionario "politico" -> "lista de discursos"
-                if chave not in self.discursos_por_politicos:
-                    self.discursos_por_politicos[chave] = dict()
-                    self.discursos_por_politicos[chave]['discursos'] = list()
-                self.discursos_por_politicos[chave]['discursos'].append(resumo_discurso)
-
-                # Armazeno um id para cada politico neste dicionario para futuras referencias
-                if 'idPolitico' not in self.discursos_por_politicos[chave]:
-                    self.discursos_por_politicos[chave]['idPolitico'] = id_politico
-                    id_politico += 1
+                                   'sumarioDiscurso': partido_orador,
+                                   'nomeOrador': nome_orador,
+                                   'ufOrador': uf_orador,
+                                   'partidoOrador': partido_orador}
+                self.metadado_discursos.append(resumo_discurso)
 
                 # Processo e conto os tokens
-                tokens_discurso = self.analisador.analizador(texto_limpo)
-                for token_processado, token_original in tokens_discurso:
-                    self._contabiliza_token(token_processado, token_original, chave)
-
-                self.tokens.append(tokens_discurso)
-
-                # Preparo proxima iteracao
-                id_discurso += 1
-
-    def salva_documentos(self, ):
-        pass
-
+                tokens_discurso = list()
+                for token_processado, token_original in self.analisador.analizador(texto_limpo):
+                    self._coleta_estatistica(token_processado, token_original, identificador_politico)
+                    tokens_discurso.append(token_processado)
+                self.tokens_processados.append(tokens_discurso)
 
 if __name__ == "__main__":
-    pass
+    prep = PreprocessadorDiscursos()
+    prep.carrega_documentos('coleta_15-06-2016_23_48_09.json')
+    prep.salva_artefatos('novo_teste')
