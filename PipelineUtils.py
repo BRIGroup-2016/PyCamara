@@ -42,7 +42,10 @@ def carrega_objetos(diretorio_raiz, nomes_arquivos):
         nome_final = diretorio_raiz + nome_arquivo
 
         local_extensao = nome_arquivo.rfind('.')
-        nome_atributo = nome_arquivo[:local_extensao]
+        if local_extensao != -1:
+            nome_atributo = nome_arquivo[:local_extensao]
+        else:
+            nome_atributo = nome_arquivo
 
         try:
             with open(nome_final) as arquivo:
