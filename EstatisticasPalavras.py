@@ -62,8 +62,8 @@ class Estatisticas:
 
 if __name__ == '__main__':
     est = Estatisticas()
-    est.carrega_dados('novo_teste')
-    est.escolha_iterativa_dicionario('novo_teste')
+    est.carrega_dados('teste_final')
+    est.escolha_iterativa_dicionario('teste_final')
 
     # import seaborn
     # import pandas

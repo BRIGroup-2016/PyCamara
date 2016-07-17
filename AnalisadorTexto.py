@@ -71,8 +71,6 @@ class PreprocessadorDiscursos:
             self.contador_tokens_por_politico[politico] = collections.Counter()
         self.contador_tokens_por_politico[politico].update([token])
 
-        self.contador_discursos_por_politico.update([politico])
-
     def salva_artefatos(self, raiz):
         PipelineUtils.salva_objeto(diretorio_raiz=raiz,
                                    nomes_atributos=['metadado_discursos',
@@ -94,7 +92,7 @@ class PreprocessadorDiscursos:
                 id_discurso += 1
 
                 discurso_dict = json.loads(linha)
-                texto_discurso = discurso_dict.get('sumarioDiscurso')
+                texto_discurso = discurso_dict.get('textoDiscurso')
                 partido_orador = discurso_dict.get('partidoOrador')
                 uf_orador = discurso_dict.get('ufOrador')
                 nome_orador = discurso_dict.get('nomeOrador')
@@ -104,9 +102,9 @@ class PreprocessadorDiscursos:
                     continue
 
                 # IMPORTANTE: Trecho que seleciona o que será tratado como texto do discurso
-                # texto_limpo = LimpezaTextoCamara.limpa_texto(texto_discurso, nome_orador)
-                # if texto_limpo is None:
-                #     continue
+                texto_limpo = LimpezaTextoCamara.limpa_texto(texto_discurso, nome_orador)
+                if texto_limpo is None:
+                    continue
                 # TODO Rever quando for usar o discurso completo de fato
                 texto_limpo = texto_discurso
 
@@ -128,9 +126,13 @@ class PreprocessadorDiscursos:
                 for token_processado, token_original in self.analisador.analizador(texto_limpo):
                     self._coleta_estatistica(token_processado, token_original, identificador_politico)
                     tokens_discurso.append(token_processado)
+
+                # Esta Estatistica deve ser coletada fora apenas uma vez por discurso
+                self.contador_discursos_por_politico.update([identificador_politico])
+
                 self.tokens_processados.append(tokens_discurso)
 
 if __name__ == "__main__":
     prep = PreprocessadorDiscursos()
     prep.carrega_documentos('coleta_15-06-2016_23_48_09.json')
-    prep.salva_artefatos('novo_teste')
+    prep.salva_artefatos('teste_final')

@@ -30,6 +30,6 @@ class ModeloVetorial:
 
 
 if __name__ == "__main__":
-    raiz = 'novo_teste'
-    modelo = ModeloVetorial(raiz)
+    raiz = 'teste_final'
+    modelo = ModeloVetorial(raiz, sublinear_tf=True, use_idf=False, norma=None)
     modelo.gera_modelo_vetorial(raiz)

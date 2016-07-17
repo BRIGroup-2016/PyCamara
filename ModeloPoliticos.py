@@ -39,12 +39,14 @@ class ModeloPolitico:
     def gera_modelo_politico(self, raiz, n_minimo_discursos):
         dataset, target = self.__carrega_dataset(raiz, n_minimo_discursos)
 
-        treino, teste, treino_target, teste_target = sklearn.cross_validation.\
-            train_test_split(dataset, target, test_size=0.2, stratify=target)
+        # treino, teste, treino_target, teste_target = sklearn.cross_validation.\
+        #     train_test_split(dataset, target, test_size=0.2, stratify=target)
+
+        treino, treino_target = dataset, target
 
         normalizador = sklearn.preprocessing.MaxAbsScaler()
         regressao = sklearn.linear_model.\
-            LogisticRegressionCV(multi_class='multinomial', Cs=[50, 10, 1, 0.1], cv=5,
+            LogisticRegressionCV(multi_class='ovr', Cs=[50, 10, 1, 0.1], cv=5,
                                  refit=True, n_jobs=-1, verbose=1, class_weight='balanced',
                                  solver='lbfgs')
 
@@ -53,48 +55,19 @@ class ModeloPolitico:
         self.modelo_final = regressao.coef_
         self.salva_artefatos(raiz)
 
+        print(regressao.C_)
+
         print("REPORT TREINO")
         predicao_treino = regressao.predict(normalizador.transform(treino))
         print(sklearn.metrics.classification_report(treino_target, predicao_treino, target_names=self.ordem_politicos))
 
-        print("REPORT TESTE")
-        predicao_teste = regressao.predict(normalizador.transform(teste))
-        print(sklearn.metrics.classification_report(teste_target, predicao_teste, target_names=self.ordem_politicos))
+        # print("REPORT TESTE")
+        # predicao_teste = regressao.predict(normalizador.transform(teste))
+        # print(sklearn.metrics.classification_report(teste_target, predicao_teste, target_names=self.ordem_politicos))
 
     def salva_artefatos(self, raiz):
         PipelineUtils.salva_objeto(self, raiz, ["ordem_politicos", "modelo_final"])
-    #
-    #     self.__calcula_matriz_similaridade(self.modelo.coef_)
-    #
-    # def comparativo(self, arq_comparativo):
-    #     n_politicos = len(self.nomes_politicos)
-    #     with open(arq_comparativo, 'w') as f:
-    #         for id_politico in range(n_politicos):
-    #             top_ids = np.argsort(self.similaridade[:, id_politico]).tolist()[::-1][1:10]
-    #             f.write(self.nomes_politicos[id_politico])
-    #             f.write("\n=====================\n")
-    #             for i in top_ids:
-    #                 f.write(str(self.similaridade[id_politico, i]) + " " + self.nomes_politicos[i] + "\n")
-    #             f.write("\n")
-    #
-    # def __calcula_matriz_similaridade(self, coefs):
-    #     n_politicos, _ = coefs.shape
-    #     similaridades = np.ones((n_politicos, n_politicos))
-    #
-    #     for id_politico1 in range(n_politicos):
-    #         for id_politico2 in range(id_politico1 + 1, n_politicos):
-    #             vet1 = coefs[id_politico1, :]
-    #             vet1 = vet1/np.linalg.norm(vet1)
-    #
-    #             vet2 = coefs[id_politico2, :]
-    #             vet2 = vet2/np.linalg.norm(vet2)
-    #
-    #             similaridade = np.inner(vet1, vet2)
-    #             similaridades[id_politico1, id_politico2] = similaridade
-    #             similaridades[id_politico2, id_politico1] = similaridade
-    #     self.similaridade = similaridades
-
 
 if __name__ == "__main__":
     modelo = ModeloPolitico()
-    modelo.gera_modelo_politico('novo_teste', 20)
+    modelo.gera_modelo_politico('teste_final', 20)

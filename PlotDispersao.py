@@ -22,27 +22,26 @@ def mapa_cores(partidos):
         cor_atual = cor_atual + passo
     return mapa
 
-
-def centroides(dispersao, partidos):
-    centroide = dict()
-
-    for i in range(len(partidos)):
-        partido = partidos[i]
-        if partido not in centroide:
-            centroide[partido] = list()
-        centroide[partido] += [dispersao[i, :]]
-
-    partidos = list(set(partidos))
-    dispersao = np.array([np.mean(centroide[p], axis=0) for p in partidos])
-
-    return dispersao, partidos
+#
+# def centroides(dispersao, partidos):
+#     centroide = dict()
+#
+#     for i in range(len(partidos)):
+#         partido = partidos[i]
+#         if partido not in centroide:
+#             centroide[partido] = list()
+#         centroide[partido] += [dispersao[i, :]]
+#
+#     partidos = list(set(partidos))
+#     dispersao = np.array([np.mean(centroide[p], axis=0) for p in partidos])
+#
+#     return dispersao, partidos
 
 if __name__ == "__main__":
-    dados = PipelineUtils.carrega_objetos('novo_teste', ['dispersao', 'partidos'])
-    dispersao = dados['dispersao']
-    partidos = dados['partidos']
+    dados = PipelineUtils.carrega_objetos('teste_final', ['dispersao_partidos', 'ordem_partidos'])
+    dispersao = dados['dispersao_partidos']
+    partidos = dados['ordem_partidos']
 
-    dispersao, partidos = centroides(dispersao, partidos)
     colormap = mapa_cores(partidos)
     c = [colormap[p] for p in partidos]
     plt.scatter(dispersao[:, 0], dispersao[:, 1], c=c)
