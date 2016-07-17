@@ -12,7 +12,7 @@ def checa_numpy(objeto):
 
 def salva_objeto(objeto, diretorio_raiz, nomes_atributos):
     if type(nomes_atributos) is str:
-        nomes_atributos = list(nomes_atributos)
+        nomes_atributos = [nomes_atributos]
     if diretorio_raiz[-1] != '/':
         diretorio_raiz += '/'
 

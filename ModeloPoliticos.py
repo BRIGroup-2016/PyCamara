@@ -2,123 +2,99 @@ import sklearn.externals
 import sklearn.linear_model
 import sklearn.preprocessing
 import sklearn.cross_validation
-import sklearn.pipeline
-from scipy.spatial.distance import cosine as cosine_similarity
-import json
+import PipelineUtils
 import numpy as np
 import sklearn.metrics
+import collections
 
 
 class ModeloPolitico:
     def __init__(self):
         pass
 
-    def carrega_dataset(self, arq_matriz, arq_resumo, arq_modelo_vetorial):
-        with open(arq_resumo) as resumo:
-            self.resumo_politicos = json.load(resumo)
-        self.matriz = sklearn.externals.joblib.load(arq_matriz)
-        self.modelo_vetorial = sklearn.externals.joblib.load(arq_modelo_vetorial)
+    def __carrega_dataset(self, raiz, n_minimo_discursos):
+        self.dados = PipelineUtils.carrega_objetos(raiz, ["vetores", "metadado_discursos"])
+        responsaveis = ["_".join([meta["nomeOrador"], meta["partidoOrador"], meta["ufOrador"]])
+                        for meta in self.dados["metadado_discursos"]]
+
+        # Logica para excluir politicos com muito poucas falas
+        contador = collections.Counter(responsaveis)
+        ids_validos = [i for i in range(len(responsaveis)) if contador[responsaveis[i]] > n_minimo_discursos]
+        responsaveis = [responsaveis[id] for id in ids_validos]
+
+        dataset = self.dados["vetores"]
+        dataset = dataset[ids_validos, :]
+
+        label_encoder = sklearn.preprocessing.LabelEncoder()
+        target = label_encoder.fit_transform(responsaveis)
+        self.ordem_politicos = label_encoder.classes_
+
         print("Tudo Carregado")
+        print("Dataset Original:", self.dados["vetores"].shape)
+        print("Dataset:", dataset.shape)
+        print("Target:", target.shape)
 
-    def prepara_dataset(self):
-        target = list()
-        nomes_politicos = list()
-        ids_discursos_utilizados = list()
+        return dataset, target
 
-        classe_atual = 0
-        for politico in self.resumo_politicos:
-            discursos = self.resumo_politicos[politico]['discursos']
-            if len(discursos) < 20:
-                continue
-
-            nomes_politicos.append(politico)
-
-            for discurso in discursos:
-                id_discurso = discurso['idDiscurso']
-
-                target.append(classe_atual)
-                ids_discursos_utilizados.append(id_discurso)
-
-            classe_atual += 1
-        dataset = self.matriz[ids_discursos_utilizados,:]
-        target = np.array(target)
-
-        return dataset, target, nomes_politicos
-
-    def gera_modelo_politico(self, arq_modelo_aprendido, arq_matriz_similaridade, arq_nomes_politicos):
-        dataset, target, nomes_politicos = self.prepara_dataset()
-        self.nomes_politicos = nomes_politicos
-
-        print(np.unique(target).shape)
+    def gera_modelo_politico(self, raiz, n_minimo_discursos):
+        dataset, target = self.__carrega_dataset(raiz, n_minimo_discursos)
 
         treino, teste, treino_target, teste_target = sklearn.cross_validation.\
             train_test_split(dataset, target, test_size=0.2, stratify=target)
 
         normalizador = sklearn.preprocessing.MaxAbsScaler()
-        regressao = sklearn.linear_model.LogisticRegressionCV(multi_class='multinomial', Cs=[30, 10, 1, 0.1], cv=5,
-                                                           refit=True, n_jobs=-1, verbose=1,
-                                                           class_weight='balanced', solver='lbfgs')
-        self.modelo = regressao
-        # self.modelo = sklearn.pipeline.Pipeline([("normalizador_zscore", normalizador),
-        #                                            ('regressao_logisitica', regressao)])
+        regressao = sklearn.linear_model.\
+            LogisticRegressionCV(multi_class='multinomial', Cs=[50, 10, 1, 0.1], cv=5,
+                                 refit=True, n_jobs=-1, verbose=1, class_weight='balanced',
+                                 solver='lbfgs')
 
         print("Treinando...")
-        # self.modelo.fit(treino, treino_target)
-        regressao.fit(normalizador.fit_transform(treino), y=treino_target)
+        regressao.fit(normalizador.fit_transform(treino), treino_target)
+        self.modelo_final = regressao.coef_
+        self.salva_artefatos(raiz)
 
-        print("Treinado")
-        # predicao = self.modelo.predict(teste)
-        predicao = regressao.predict(normalizador.transform(teste))
+        print("REPORT TREINO")
+        predicao_treino = regressao.predict(normalizador.transform(treino))
+        print(sklearn.metrics.classification_report(treino_target, predicao_treino, target_names=self.ordem_politicos))
 
-        print(sklearn.metrics.classification_report(teste_target, predicao, target_names=nomes_politicos))
+        print("REPORT TESTE")
+        predicao_teste = regressao.predict(normalizador.transform(teste))
+        print(sklearn.metrics.classification_report(teste_target, predicao_teste, target_names=self.ordem_politicos))
 
-        sklearn.externals.joblib.dump(self.modelo, arq_modelo_aprendido)
-        sklearn.externals.joblib.dump(normalizador, arq_modelo_aprendido + "_normalizador")
-        print("Modelo Aprendido Salvo")
-
-        self.__calcula_matriz_similaridade(self.modelo.coef_)
-        sklearn.externals.joblib.dump(self.similaridade, arq_matriz_similaridade)
-
-        with open(arq_nomes_politicos, 'w') as f:
-            f.write("\n".join(nomes_politicos))
-
-        print("Matriz de similaridade salva")
-
-    def comparativo(self, arq_comparativo):
-        n_politicos = len(self.nomes_politicos)
-        with open(arq_comparativo, 'w') as f:
-            for id_politico in range(n_politicos):
-                top_ids = np.argsort(self.similaridade[:, id_politico]).tolist()[::-1][1:10]
-                f.write(self.nomes_politicos[id_politico])
-                f.write("\n=====================\n")
-                for i in top_ids:
-                    f.write(str(self.similaridade[id_politico, i]) + " " + self.nomes_politicos[i] + "\n")
-                f.write("\n")
-
-    def __calcula_matriz_similaridade(self, coefs):
-        n_politicos, _ = coefs.shape
-        similaridades = np.ones((n_politicos, n_politicos))
-
-        for id_politico1 in range(n_politicos):
-            for id_politico2 in range(id_politico1 + 1, n_politicos):
-                vet1 = coefs[id_politico1, :]
-                vet1 = vet1/np.linalg.norm(vet1)
-
-                vet2 = coefs[id_politico2, :]
-                vet2 = vet2/np.linalg.norm(vet2)
-
-                similaridade = np.inner(vet1, vet2)
-                similaridades[id_politico1, id_politico2] = similaridade
-                similaridades[id_politico2, id_politico1] = similaridade
-        self.similaridade = similaridades
+    def salva_artefatos(self, raiz):
+        PipelineUtils.salva_objeto(self, raiz, ["ordem_politicos", "modelo_final"])
+    #
+    #     self.__calcula_matriz_similaridade(self.modelo.coef_)
+    #
+    # def comparativo(self, arq_comparativo):
+    #     n_politicos = len(self.nomes_politicos)
+    #     with open(arq_comparativo, 'w') as f:
+    #         for id_politico in range(n_politicos):
+    #             top_ids = np.argsort(self.similaridade[:, id_politico]).tolist()[::-1][1:10]
+    #             f.write(self.nomes_politicos[id_politico])
+    #             f.write("\n=====================\n")
+    #             for i in top_ids:
+    #                 f.write(str(self.similaridade[id_politico, i]) + " " + self.nomes_politicos[i] + "\n")
+    #             f.write("\n")
+    #
+    # def __calcula_matriz_similaridade(self, coefs):
+    #     n_politicos, _ = coefs.shape
+    #     similaridades = np.ones((n_politicos, n_politicos))
+    #
+    #     for id_politico1 in range(n_politicos):
+    #         for id_politico2 in range(id_politico1 + 1, n_politicos):
+    #             vet1 = coefs[id_politico1, :]
+    #             vet1 = vet1/np.linalg.norm(vet1)
+    #
+    #             vet2 = coefs[id_politico2, :]
+    #             vet2 = vet2/np.linalg.norm(vet2)
+    #
+    #             similaridade = np.inner(vet1, vet2)
+    #             similaridades[id_politico1, id_politico2] = similaridade
+    #             similaridades[id_politico2, id_politico1] = similaridade
+    #     self.similaridade = similaridades
 
 
 if __name__ == "__main__":
-    prefixo = "saida_resumo_tfidf_sem_norma_512/"
     modelo = ModeloPolitico()
-    modelo.carrega_dataset(prefixo + "matriz",
-                           prefixo + "resumo_discursos.json",
-                           prefixo + "modelo" )
-    modelo.gera_modelo_politico(prefixo + "modelo_aprendido", prefixo + "similaridade", prefixo + "politicos")
-    modelo.comparativo(prefixo + "comparativo.txt")
-
+    modelo.gera_modelo_politico('novo_teste', 20)

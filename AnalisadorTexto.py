@@ -117,7 +117,7 @@ class PreprocessadorDiscursos:
                 resumo_discurso = {'descricaoFaseSessao': discurso_dict.get('descricaoFaseSessao'),
                                    'tipoSessao': discurso_dict.get('tipoSessao'),
                                    'horaInicioDiscurso': discurso_dict.get('horaInicioDiscurso'),
-                                   'sumarioDiscurso': partido_orador,
+                                   # 'sumarioDiscurso': partido_orador,
                                    'nomeOrador': nome_orador,
                                    'ufOrador': uf_orador,
                                    'partidoOrador': partido_orador}
