@@ -12,12 +12,17 @@ class ModeloPolitico:
     def __init__(self):
         pass
 
-    def __carrega_dataset(self, raiz, n_minimo_discursos):
-        self.dados = PipelineUtils.carrega_objetos(raiz, ["vetores", "metadado_discursos"])
-        responsaveis = ["_".join([meta["nomeOrador"], meta["partidoOrador"], meta["ufOrador"]])
-                        for meta in self.dados["metadado_discursos"]]
+    def __label_politico(self, metadado):
+        return "_".join([metadado["nomeOrador"], metadado["partidoOrador"], metadado["ufOrador"]])
 
-        # Logica para excluir politicos com muito poucas falas
+    def __label_partido(self, metadado):
+        return metadado["partidoOrador"]
+
+    def __carrega_dataset(self, raiz, n_minimo_discursos, funcao_agregacao):
+        self.dados = PipelineUtils.carrega_objetos(raiz, ["vetores", "metadado_discursos"])
+        responsaveis = [funcao_agregacao(meta) for meta in self.dados["metadado_discursos"]]
+
+        # Logica para excluir categorias com muito poucas falas
         contador = collections.Counter(responsaveis)
         ids_validos = [i for i in range(len(responsaveis)) if contador[responsaveis[i]] > n_minimo_discursos]
         responsaveis = [responsaveis[id] for id in ids_validos]
@@ -27,47 +32,51 @@ class ModeloPolitico:
 
         label_encoder = sklearn.preprocessing.LabelEncoder()
         target = label_encoder.fit_transform(responsaveis)
-        self.ordem_politicos = label_encoder.classes_
+        significado_labels = label_encoder.classes_
 
         print("Tudo Carregado")
         print("Dataset Original:", self.dados["vetores"].shape)
         print("Dataset:", dataset.shape)
         print("Target:", target.shape)
 
-        return dataset, target
+        return dataset, target, significado_labels
 
-    def gera_modelo_politico(self, raiz, n_minimo_discursos):
-        dataset, target = self.__carrega_dataset(raiz, n_minimo_discursos)
+    def __gera_modelo(self, raiz, n_minimo_discursos, agrupamento='politico'):
+        if agrupamento == 'partido':
+            funcao_agregacao = self.__label_partido
+        else:
+            funcao_agregacao = self.__label_politico
 
-        # treino, teste, treino_target, teste_target = sklearn.cross_validation.\
-        #     train_test_split(dataset, target, test_size=0.2, stratify=target)
+        dataset, target, significado_labels = self.__carrega_dataset(raiz, n_minimo_discursos, funcao_agregacao)
 
+        # Não tenho interesse em ter um conjunto de teste, já que as avaliações são qualitativas
         treino, treino_target = dataset, target
 
         normalizador = sklearn.preprocessing.MaxAbsScaler()
-        regressao = sklearn.linear_model.\
-            LogisticRegressionCV(multi_class='ovr', Cs=[50, 10, 1, 0.1], cv=5,
+        regressao = sklearn.linear_model. \
+            LogisticRegressionCV(multi_class='ovr', Cs=[100, 10, 1, 0.1, 0.01], cv=5,
                                  refit=True, n_jobs=-1, verbose=1, class_weight='balanced',
                                  solver='lbfgs')
 
-        print("Treinando...")
+        print("Treinando", agrupamento)
         regressao.fit(normalizador.fit_transform(treino), treino_target)
-        self.modelo_final = regressao.coef_
-        self.salva_artefatos(raiz)
 
-        print(regressao.C_)
+        print("C:", regressao.C_)
+        print("REPORT TREINO:")
 
-        print("REPORT TREINO")
         predicao_treino = regressao.predict(normalizador.transform(treino))
-        print(sklearn.metrics.classification_report(treino_target, predicao_treino, target_names=self.ordem_politicos))
-
-        # print("REPORT TESTE")
-        # predicao_teste = regressao.predict(normalizador.transform(teste))
-        # print(sklearn.metrics.classification_report(teste_target, predicao_teste, target_names=self.ordem_politicos))
+        print(sklearn.metrics.classification_report(treino_target, predicao_treino, target_names=significado_labels))
+        return regressao.coef_, significado_labels
 
     def salva_artefatos(self, raiz):
-        PipelineUtils.salva_objeto(self, raiz, ["ordem_politicos", "modelo_final"])
+        PipelineUtils.salva_objeto(self, raiz, ["modelo_partido", "nome_partidos", "modelo_politico", "nome_politicos"])
+        # PipelineUtils.salva_objeto(self, raiz, ["modelo_partido", "nome_partidos"])
+
+    def gera_modelos(self, raiz, n_minimo_discursos):
+        self.modelo_politico, self.nome_politicos = self.__gera_modelo(raiz, n_minimo_discursos, 'politico')
+        self.modelo_partido, self.nome_partidos = self.__gera_modelo(raiz, n_minimo_discursos, 'partido')
+        self.salva_artefatos(raiz)
 
 if __name__ == "__main__":
     modelo = ModeloPolitico()
-    modelo.gera_modelo_politico('teste_final', 20)
+    modelo.gera_modelos('teste_final', 20)
