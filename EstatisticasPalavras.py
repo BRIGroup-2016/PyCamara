@@ -27,6 +27,7 @@ class Estatisticas:
 
     def _salva_dicionario_escolhido(self, histograma, raiz, freq_max, freq_min):
         tuplas = list(histograma.items())
+        tuplas = sorted(tuplas, key=lambda a: a[1])[::-1]
         self.vocabulario_escolhido = {self.dicionario_tokens[t[0]]: t[0] for t in tuplas[freq_min: freq_max]}
         PipelineUtils.salva_objeto(self, raiz, ['vocabulario_escolhido'])
 

@@ -15,8 +15,8 @@ def normaliza_linhas_matriz(matriz):
 
 
 class AnaliseSimilaridade:
-    comparativos_padrao = ['concordancia_positiva', 'concordancia_negativa',
-                           'discordancia_apenas_principal', 'discordancia_apenas_secundario']
+    comparativos_padrao = ['concordancia_positiva'] #, 'concordancia_negativa',
+                           #'discordancia_apenas_principal', 'discordancia_apenas_secundario']
 
     def __init__(self, funcao_similaridade=similaridade_cosseno):
         self.funcao_similaridade = funcao_similaridade
@@ -113,23 +113,23 @@ class AnaliseSimilaridadePolitica:
         pass
 
     def realiza_analise(self, raiz):
-        dados = PipelineUtils.carrega_objetos(raiz, ["nome_politicos", "modelo_politicos",
-                                                     "nome_partidos", "modelo_partidos",
-                                                     "nome_features", "vocabulario_escolhido"])
+        dados = PipelineUtils.carrega_objetos(raiz, ["nome_politicos", "modelo_politico",
+                                                     "nome_partidos", "modelo_partido",
+                                                     "ordem_features", "vocabulario_escolhido"])
 
         # Features = os tokens processados, preciso saber qual palavra inteligivel representa cada feature de fato
-        nome_features = [dados["vocabulario_escolhido"][token] for token in dados["nome_features"]]
+        nome_features = [dados["vocabulario_escolhido"][token] for token in dados["ordem_features"]]
         politicos = dados["nome_politicos"]
         partidos = dados["nome_partidos"]
-        modelo_politicos = dados["modelo_politicos"]
-        modelo_partidos = dados["modelo_partidos"]
+        modelo_politicos = dados["modelo_politico"]
+        modelo_partidos = dados["modelo_partido"]
 
         analise_partido = AnaliseSimilaridade()
-        json_partidos = analise_partido.resumo_similaridade(modelo_partidos, partidos, nome_features, 10, 10)
+        json_partidos = analise_partido.resumo_similaridade(modelo_partidos, partidos, nome_features, 10, 50)
         json.dump(json_partidos, open(raiz + "/analise_partido.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
 
         analise_politico = AnaliseSimilaridade()
-        json_politicos = analise_politico.resumo_similaridade(modelo_politicos, politicos, nome_features, 10, 10)
+        json_politicos = analise_politico.resumo_similaridade(modelo_politicos, politicos, nome_features, 10, 50)
         json.dump(json_politicos, open(raiz + "/analise_politicos.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
 
     # def calcula_dispersao_partidos(self, raiz):

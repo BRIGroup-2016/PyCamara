@@ -31,5 +31,5 @@ class ModeloVetorial:
 
 if __name__ == "__main__":
     raiz = 'teste_final'
-    modelo = ModeloVetorial(raiz, sublinear_tf=True, use_idf=False, norma=None)
+    modelo = ModeloVetorial(raiz, sublinear_tf=False, use_idf=False, norma='l2')
     modelo.gera_modelo_vetorial(raiz)
