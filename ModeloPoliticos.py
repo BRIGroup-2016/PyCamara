@@ -62,6 +62,7 @@ class ModeloPolitico:
         regressao.fit(normalizador.fit_transform(treino), treino_target)
 
         print("C:", regressao.C_)
+        print("CV Scores:", regressao.scores_)
         print("REPORT TREINO:")
 
         predicao_treino = regressao.predict(normalizador.transform(treino))
@@ -79,4 +80,4 @@ class ModeloPolitico:
 
 if __name__ == "__main__":
     modelo = ModeloPolitico()
-    modelo.gera_modelos('teste_final', 50)
+    modelo.gera_modelos('teste_final', 40)

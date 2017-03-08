@@ -13,7 +13,7 @@ NLTK_STEMMER = nltk.stem.RSLPStemmer().stem
 
 class Analisador:
     def __init__(self, separa_diacriticos=True, regexp_separador_tokens='[ ]+',
-                 regexp_caracteres_validos='[^a-zA-Z ]', stop=set(),
+                 regexp_caracteres_validos='[^a-zA-Z ]', regexp_pontuacao='[-!,.()/:;\'"]', stop=set(),
                  stemmer=NLTK_STEMMER, tamanho_minimo_token=2):
 
         self.stemmer = stemmer
@@ -23,6 +23,7 @@ class Analisador:
 
         self.caracteres_validos = re.compile(regexp_caracteres_validos)
         self.separador_tokens = re.compile(regexp_separador_tokens)
+        self.pontuacao = re.compile(regexp_pontuacao)
 
         # if stemmer is not None:
         #     self.stop = {self.preprocessador(self.stemmer(palavra)) for palavra in stop}
@@ -31,6 +32,7 @@ class Analisador:
         txt = txt.lower()
         if self.separa_diacriticos:
             txt = unicodedata.normalize('NFD', txt)
+        txt = self.pontuacao.sub(" ", txt)
         txt = self.caracteres_validos.sub("", txt)
         return txt
 
@@ -61,6 +63,7 @@ class PreprocessadorDiscursos:
         self.contador_palavras_por_token = dict()
         self.contador_tokens_por_politico = dict()
         self.contador_discursos_por_politico = collections.Counter()
+        self.contador_discursos_por_token = collections.Counter()
 
     def _coleta_estatistica(self, token, palavra_original, politico):
         if token not in self.contador_palavras_por_token:
@@ -77,7 +80,8 @@ class PreprocessadorDiscursos:
                                                     'tokens_processados',
                                                     'contador_palavras_por_token',
                                                     'contador_discursos_por_politico',
-                                                    'contador_tokens_por_politico'],
+                                                    'contador_tokens_por_politico',
+                                                    'contador_discursos_por_token'],
                                    objeto=self)
 
     def carrega_documentos(self, arq_jsons_discursos):
@@ -129,6 +133,7 @@ class PreprocessadorDiscursos:
 
                 # Esta Estatistica deve ser coletada fora apenas uma vez por discurso
                 self.contador_discursos_por_politico.update([identificador_politico])
+                self.contador_discursos_por_token.update(set(tokens_discurso))
 
                 self.tokens_processados.append(tokens_discurso)
 

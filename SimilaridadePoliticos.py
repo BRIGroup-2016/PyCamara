@@ -2,6 +2,8 @@ import PipelineUtils
 import numpy as np
 import sklearn.manifold
 import sklearn.decomposition
+import sklearn.cluster
+from wordcloud import WordCloud
 import json
 
 
@@ -40,6 +42,27 @@ class AnaliseSimilaridade:
 
         self.matriz_similaridades = similaridades
 
+    def clusterizacao(self, nome_categorias):
+        affinity_prop = sklearn.cluster.AffinityPropagation(damping=0.6, affinity='precomputed')
+        clusters = affinity_prop.fit_predict((1 + self.matriz_similaridades)/2)
+        nome_categorias = np.array(nome_categorias)
+
+        for i in np.unique(clusters):
+            indice_cluster = np.nonzero(clusters == i)
+            representante = nome_categorias[affinity_prop.cluster_centers_indices_[i]]
+            print(i, representante)
+            print(nome_categorias[indice_cluster])
+            self.word_cloud(self.modelo[indice_cluster, :].sum(axis=1), ["Cluster_" + str(i) + "_" + representante],
+                            self.nome_features)
+            print("-----------------")
+
+    def word_cloud(self, matriz, nome_categorias, nome_features):
+        for i, nome_categoria in enumerate(nome_categorias):
+            print(nome_categoria)
+            freqs = [(nome_feature, matriz[i, j]) for j, nome_feature in enumerate(nome_features) if matriz[i, j] > 0]
+            wordcloud = WordCloud(scale=10).generate_from_frequencies(freqs)
+            wordcloud.to_file("wordcloud/" + nome_categoria + ".png")
+
     def resumo_similaridade(self, modelo, nome_categorias, nome_features,
                             n_categorias_similares, n_features_similares):
         self.modelo = normaliza_linhas_matriz(modelo)
@@ -47,6 +70,8 @@ class AnaliseSimilaridade:
         self.nome_features = nome_features
 
         self.__matriz_similaridade()
+        self.clusterizacao(nome_categorias)
+        # self.word_cloud(self.modelo, self.nome_categorias, self.nome_features)
 
         resumo = dict()
         for id_categoria in range(len(nome_categorias)):
@@ -126,11 +151,11 @@ class AnaliseSimilaridadePolitica:
 
         analise_partido = AnaliseSimilaridade()
         json_partidos = analise_partido.resumo_similaridade(modelo_partidos, partidos, nome_features, 10, 50)
-        json.dump(json_partidos, open(raiz + "/analise_partido.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
+        # json.dump(json_partidos, open(raiz + "/analise_partido.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
 
         analise_politico = AnaliseSimilaridade()
         json_politicos = analise_politico.resumo_similaridade(modelo_politicos, politicos, nome_features, 10, 50)
-        json.dump(json_politicos, open(raiz + "/analise_politicos.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
+        # json.dump(json_politicos, open(raiz + "/analise_politicos.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
 
     # def calcula_dispersao_partidos(self, raiz):
     #     # manifold = sklearn.manifold.MDS(n_components=2, metric='precomputed')
