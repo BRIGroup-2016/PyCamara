@@ -3,9 +3,45 @@ import numpy as np
 import sklearn.manifold
 import sklearn.decomposition
 import sklearn.cluster
+import sklearn.metrics
+import matplotlib.pyplot as plt
 from wordcloud import WordCloud
+
+import collections
 import json
 
+IDEOLOGIAS = {
+    "PMDB": ["sincretismo político"],
+    "PT": ["socialismo democrático", "reformismo", "desenvolvimentismo", "lulismo", "progressismo", "trotskismo"],
+    "PSDB": ["social democracia", "liberalismo social"],
+    "PP": ["conservadorismo", "populismo", "liberalismo econômico", "conservadorismo liberal", "pega-tudo"],
+    "PSB": ["socialismo democrático", "reformismo", "progressismo"],
+    "PPS": ["social democracia", "terceira via", "parlamentarismo"],
+    "PSC": ["conservadorismo fiscal", "conservadorismo liberal", "conservadorismo social"],
+    "PCDOB": ["socialismo democrático", "comunismo", "marxismo-leninismo", "maoísmo", "reformismo", "desenvolvimentismo"],
+    "PRB": ["republicanismo", "conservadorismo liberal", "intervencionismo econômico"],
+    "PV": ["ambientalismo", "ecologismo", "liberalismo social", "social democracia", "federalismo", "progressismo"],
+    "PSD": ["social democracia", "liberalismo econômico", "nacionalismo", "conservadorismo liberal"],
+    "PRP": ["republicanismo", "progressismo"],
+    "PSL": ["liberalismo social", "liberalismo econômico", "libertarianismo bleeding-heart"],
+    "PMN": ["mobilização"],
+    "PHS": ["humanismo", "distributismo", "democracia cristã"],
+    "PTC": ["trabalhismo", "conservadorismo liberal", "direita cristã"],
+    "PSDC": ["democracia cristã", "conservadorismo social", "direita cristã"],
+    "PTDOB": ["trabalhismo", "nacionalismo", "getulismo"],
+    "SD": ["trabalhismo"],
+    "PTN": ["trabalhismo", "nacionalismo"],
+    "PRTB": ["trabalhismo", "participalismo", "conservadorismo", "nacionalismo"],
+    "PSOL": ["socialismo", "marxismo", "trotskismo", "ecossocialismo"],
+    "PROS": ["republicanismo", "pega-tudo", "nacionalismo"],
+    "PEN": ["sustentabilidade", "ecologismo"],
+    "PPL": ["desenvolvimentismo", "socialismo científico"],
+    "PMB": ["direitos da mulher"],
+    "REDE": ["social democracia", "ecologismo", "sustentabilidade"],
+    "PSTU": ["socialismo", "comunismo", "marxismo-leninismo", "trotskismo"],
+    "PCB": ["socialismo", "comunismo", "marxismo-leninismo"],
+    "NOVO": ["liberalismo econômico", "libertarianismo"],
+    "PCO": ["socialismo", "comunismo", "marxismo-leninismo", "trotskismo"]}
 
 def similaridade_cosseno(vetor1, vetor2):
     return np.dot(vetor1, vetor2)
@@ -42,16 +78,51 @@ class AnaliseSimilaridade:
 
         self.matriz_similaridades = similaridades
 
-    def clusterizacao(self, nome_categorias):
-        affinity_prop = sklearn.cluster.AffinityPropagation(damping=0.6, affinity='precomputed')
-        clusters = affinity_prop.fit_predict((1 + self.matriz_similaridades)/2)
-        nome_categorias = np.array(nome_categorias)
+    def ideologias(self, descritor):
+        if descritor in IDEOLOGIAS:
+            return IDEOLOGIAS[descritor]
+        if "_" in descritor:
+            partido = descritor.split("_")[1]
+            return self.ideologias(partido)
+        return []
 
+    def clusterizacao(self, nome_categorias):
+        X = (self.matriz_similaridades + 1)
+        style = ['.', '+', 'o', '*', 'v']
+        for i, damping in enumerate(np.arange(0.5, 1, 0.1)):
+            silhuetas = []
+            preferencias = []
+            for preference in np.arange(0.1, 1, 0.05):
+                try:
+                    affinity_prop = sklearn.cluster.AffinityPropagation(damping=damping, affinity='precomputed',
+                                                                        preference=preference)
+                    clusters = affinity_prop.fit_predict(X)
+                    silhueta = sklearn.metrics.silhouette_score(-1.0*self.matriz_similaridades + 1,
+                                                                clusters, metric='precomputed')
+                    silhuetas.append(silhueta)
+                    preferencias.append(preference)
+                except:
+                    continue
+            plt.plot(preferencias, silhuetas, label="damping= " + str(damping), marker=style[i])
+        plt.legend(loc='lower right')
+        plt.show()
+
+        preferencia = float(input("Escolha final preferencia: "))
+        damping = float(input("Escolha final damping: "))
+        affinity_prop = sklearn.cluster.AffinityPropagation(damping=damping, affinity='precomputed',
+                                                            preference=preferencia)
+        clusters = affinity_prop.fit_predict(X)
+
+        nome_categorias = np.array(nome_categorias)
         for i in np.unique(clusters):
             indice_cluster = np.nonzero(clusters == i)
             representante = nome_categorias[affinity_prop.cluster_centers_indices_[i]]
             print(i, representante)
             print(nome_categorias[indice_cluster])
+            c = collections.Counter()
+            c.update([ideologia for descritores in nome_categorias[indice_cluster]
+                      for ideologia in self.ideologias(descritores)])
+            print(c.most_common(3))
             self.word_cloud(self.modelo[indice_cluster, :].sum(axis=1), ["Cluster_" + str(i) + "_" + representante],
                             self.nome_features)
             print("-----------------")
@@ -63,7 +134,7 @@ class AnaliseSimilaridade:
             wordcloud = WordCloud(scale=10).generate_from_frequencies(freqs)
             wordcloud.to_file("wordcloud/" + nome_categoria + ".png")
 
-    def resumo_similaridade(self, modelo, nome_categorias, nome_features,
+    def resumo_similaridade(self, tipo, modelo, nome_categorias, nome_features,
                             n_categorias_similares, n_features_similares):
         self.modelo = normaliza_linhas_matriz(modelo)
         self.nome_categorias = nome_categorias
@@ -71,7 +142,11 @@ class AnaliseSimilaridade:
 
         self.__matriz_similaridade()
         self.clusterizacao(nome_categorias)
-        # self.word_cloud(self.modelo, self.nome_categorias, self.nome_features)
+
+        np.savetxt('saves/%s-modelo.txt' % tipo, modelo)
+        np.savetxt('saves/%s-similaridade.txt' % tipo, self.matriz_similaridades)
+        open('saves/%s-nome_categorias.json' % tipo, 'w').write(str(nome_categorias))
+        open('saves/%s-nome_features.json' % tipo, 'w').write(str(nome_features))
 
         resumo = dict()
         for id_categoria in range(len(nome_categorias)):
@@ -150,11 +225,11 @@ class AnaliseSimilaridadePolitica:
         modelo_partidos = dados["modelo_partido"]
 
         analise_partido = AnaliseSimilaridade()
-        json_partidos = analise_partido.resumo_similaridade(modelo_partidos, partidos, nome_features, 10, 50)
+        json_partidos = analise_partido.resumo_similaridade('partidos', modelo_partidos, partidos, nome_features, 10, 50)
         # json.dump(json_partidos, open(raiz + "/analise_partido.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
 
         analise_politico = AnaliseSimilaridade()
-        json_politicos = analise_politico.resumo_similaridade(modelo_politicos, politicos, nome_features, 10, 50)
+        json_politicos = analise_politico.resumo_similaridade('politicos', modelo_politicos, politicos, nome_features, 10, 50)
         # json.dump(json_politicos, open(raiz + "/analise_politicos.json", 'w'), ensure_ascii=True, indent=4, sort_keys=True)
 
     # def calcula_dispersao_partidos(self, raiz):

@@ -54,17 +54,18 @@ class ModeloPolitico:
 
         normalizador = sklearn.preprocessing.MaxAbsScaler()
         regressao = sklearn.linear_model. \
-            LogisticRegressionCV(multi_class='multinomial', Cs=[100, 10, 1, 0.1, 0.01], cv=3,
-                                 refit=True, n_jobs=-1, verbose=1, class_weight='balanced',
+            LogisticRegressionCV(multi_class='multinomial', Cs=[10, 1, 0.1], cv=3,
+                                 refit=True, n_jobs=-1, verbose=1,  # class_weight='balanced',
                                  solver='lbfgs')
 
         print("Treinando", agrupamento)
         regressao.fit(normalizador.fit_transform(treino), treino_target)
 
         print("C:", regressao.C_)
-        print("CV Scores:", regressao.scores_)
-        print("REPORT TREINO:")
+        for classe, scores in regressao.scores_.items():
+            print("Classe:", significado_labels[classe], "C:", regressao.C_[classe], scores.max())
 
+        print("REPORT TREINO:")
         predicao_treino = regressao.predict(normalizador.transform(treino))
         print(sklearn.metrics.classification_report(treino_target, predicao_treino, target_names=significado_labels))
         return regressao.coef_, significado_labels
@@ -80,4 +81,4 @@ class ModeloPolitico:
 
 if __name__ == "__main__":
     modelo = ModeloPolitico()
-    modelo.gera_modelos('teste_final', 40)
+    modelo.gera_modelos('teste_final', 50)

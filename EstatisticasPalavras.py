@@ -12,8 +12,18 @@ class Estatisticas:
 
         self.lista_partidos = list()
         self.lista_politicos = list()
-        self.lista_estados = ["al", "ac", "ap", "am", "ba", "ce", "df", "es", "go", "ma", "mt", "ms", "mg", "pa", "pb",
+        self.lista_siglas = ["al", "ac", "ap", "am", "ba", "ce", "df", "es", "go", "ma", "mt", "ms", "mg", "pa", "pb",
                               "pr", "pe", "pi", "rj", "rn", "rs", "ro", "rr", "sc", "sp", "se", "to"]
+        self.lista_estados_capitais = {"acre", "alagoas", "amapa", "amazonas", "bahia", "ceara", "distrito", "federal",
+                                       "espirito", "santo", "goias", "maranhao", "mato", "grosso", "mato", "grosso",
+                                       "do", "sul", "minas", "gerais", "para", "paraiba", "parana", "pernambuco",
+                                       "piaui", "rio", "de", "janeiro", "rio", "grande", "do", "norte", "rio", "grande",
+                                       "do", "sul", "rondonia", "roraima", "santa", "catarina", "sao", "paulo",
+                                       "sergipe", "tocantins", "rio", "branco", "maceio", "macapa", "manaus",
+                                       "salvador", "fortaleza", "brasilia", "vitoria", "goiania", "sao", "luis",
+                                       "cuiaba", "campo", "grande", "belo", "horizonte", "belem", "joao", "pessoa",
+                                       "curitiba", "recife", "teresina", "natal", "porto", "alegre", "porto", "velho",
+                                       "boa", "vista", "florianopolis", "aracaju", "palmas"}
 
     def carrega_dados(self, raiz):
         self.dados = PipelineUtils.carrega_objetos(raiz, ['contador_palavras_por_token',
@@ -31,7 +41,7 @@ class Estatisticas:
     def histograma_palavras(self):
         histograma = dict()
         for token, frequencias in self.dados['contador_palavras_por_token'].items():
-            n_ocorrencias_palavra = sum(frequencias.values())
+            # n_ocorrencias_palavra = sum(frequencias.values())
             n_ocorrencias_documentos = self.dados['contador_discursos_por_token'][token]
             palavra_representante = max(frequencias.keys(), key=lambda palavra: frequencias[palavra])
 
@@ -39,7 +49,8 @@ class Estatisticas:
                 raise Exception("Aconteceu repeticao de token")
 
             if palavra_representante in self.lista_politicos or palavra_representante in self.lista_partidos \
-                    or palavra_representante in self.lista_estados:
+                    or palavra_representante in self.lista_siglas \
+                    or palavra_representante in self.lista_estados_capitais or "orador" in palavra_representante:
                 continue
 
             # histograma[palavra_representante] = n_ocorrencias_palavra
@@ -67,14 +78,16 @@ class Estatisticas:
         tuples.sort(key=lambda t: t[1])
         tuples = tuples[::-1]
 
-        index_max = len(tuples)
+        index_max = 6000
         index_min = 0
 
         # Modo iterativo de escolha das frequencias de palavras
         while True:
             print(tuples[index_min: index_max])
-            plt.plot([math.log(math.log(t[1])) for t in tuples[index_min: index_max] if t[1] > 2])
-            plt.title("Log-log frequência de palavras")
+            plt.plot([math.log(t[1]) for t in tuples[index_min: index_max] if t[1] > 2])
+            plt.title("Frequência das palavras nos diferentes discursos")
+            plt.xlabel("Ordem de frequência")
+            plt.ylabel("log frequência")
             plt.show()
             try:
                 _min = int(input("Posicao minima: "))
