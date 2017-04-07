@@ -98,8 +98,17 @@ class Estatisticas:
                 index_max = _max
                 index_min = _min
             except:
-                self._salva_dicionario_escolhido(hist, raiz, index_max, index_min)
-                print("Vocabulario de tokens salvo")
+                # self._salva_dicionario_escolhido(hist, raiz, index_max, index_min)
+                # print("Vocabulario de tokens salvo")
+
+                # PLOT FINAL
+                plt.plot([math.log(t[1], 10) for t in tuples[0: 6000]])
+                plt.title("Frequência das palavras nos diferentes discursos")
+                plt.xlabel("Ordem de frequência")
+                plt.ylabel("log10 da Frequência")
+                plt.axvline(x=index_min, color='r')
+                plt.axvline(x=index_max, color='r')
+                plt.savefig("distribuicao-final-palavras.png")
                 break
 
 
