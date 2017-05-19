@@ -86,7 +86,7 @@ class AnaliseSimilaridade:
             return self.ideologias(partido)
         return []
 
-    def clusterizacao(self, nome_categorias):
+    def clusterizacao(self, nome_categorias, titulo):
         X = (self.matriz_similaridades + 1)
         style = ['.', '+', 'o', '*', 'v']
         for i, damping in enumerate(np.arange(0.5, 1, 0.1)):
@@ -105,6 +105,9 @@ class AnaliseSimilaridade:
                     continue
             plt.plot(preferencias, silhuetas, label="damping= " + str(damping), marker=style[i])
         plt.legend(loc='lower right')
+        plt.ylabel("Silhueta")
+        plt.xlabel("Preferência")
+        plt.title("Silhueta do Affinity Propagation de " + titulo)
         plt.show()
 
         preferencia = float(input("Escolha final preferencia: "))
@@ -123,8 +126,8 @@ class AnaliseSimilaridade:
             c.update([ideologia for descritores in nome_categorias[indice_cluster]
                       for ideologia in self.ideologias(descritores)])
             print(c.most_common(3))
-            self.word_cloud(self.modelo[indice_cluster, :].sum(axis=1), ["Cluster_" + str(i) + "_" + representante],
-                            self.nome_features)
+            # self.word_cloud(self.modelo[indice_cluster, :].sum(axis=1), ["Cluster_" + str(i) + "_" + representante],
+            #                 self.nome_features)
             print("-----------------")
 
     def word_cloud(self, matriz, nome_categorias, nome_features):
@@ -141,7 +144,7 @@ class AnaliseSimilaridade:
         self.nome_features = nome_features
 
         self.__matriz_similaridade()
-        self.clusterizacao(nome_categorias)
+        self.clusterizacao(nome_categorias, tipo)
 
         np.savetxt('saves/%s-modelo.txt' % tipo, modelo)
         np.savetxt('saves/%s-similaridade.txt' % tipo, self.matriz_similaridades)
